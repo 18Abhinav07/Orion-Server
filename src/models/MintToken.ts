@@ -10,7 +10,10 @@ export interface IMintToken extends Document {
   signature: string;
   issuedAt: Date;
   expiresAt: Date;
-  status: 'valid' | 'used' | 'expired' | 'revoked';
+  status: 'pending' | 'used' | 'expired' | 'revoked';
+  ipId?: string;
+  tokenId?: number;
+  txHash?: string;
   usedAt?: Date;
   usedInTx?: string;
   revokedAt?: Date;
@@ -31,10 +34,13 @@ const MintTokenSchema: Schema = new Schema({
   expiresAt: { type: Date, required: true, indexed: true },
   status: {
     type: String,
-    enum: ['valid', 'used', 'expired', 'revoked'],
-    default: 'valid',
+    enum: ['pending', 'used', 'expired', 'revoked'],
+    default: 'pending',
     indexed: true,
   },
+  ipId: { type: String },
+  tokenId: { type: Number },
+  txHash: { type: String },
   usedAt: { type: Date },
   usedInTx: { type: String },
   revokedAt: { type: Date },

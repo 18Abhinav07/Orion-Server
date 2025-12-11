@@ -1,14 +1,15 @@
 import { Router } from 'express';
-import { generateMintToken, getTokenStatus, revokeToken } from '../controllers/verificationController';
+import { generateMintToken, getTokenStatus, updateMintToken, revokeToken } from '../controllers/verificationController';
 import { protect } from '../middleware/auth';
 
 const router = Router();
 
-// All verification routes should be protected
-router.use(protect);
-
+// Public endpoints for minting flow (frontend needs access)
 router.post('/generate-mint-token', generateMintToken);
 router.get('/token/:nonce/status', getTokenStatus);
-router.post('/revoke-token', revokeToken);
+router.patch('/token/:nonce/update', updateMintToken);
+
+// Protected admin endpoints
+router.post('/revoke-token', protect, revokeToken);
 
 export default router;
