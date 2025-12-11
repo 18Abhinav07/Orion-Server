@@ -6,7 +6,7 @@ interface ApiResponse {
   data: any | null;
   error: {
     code?: string;
-    details?: string;
+    details?: string | null;
   } | null;
 }
 

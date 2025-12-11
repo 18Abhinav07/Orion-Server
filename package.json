@@ -8,6 +8,7 @@
     "build": "tsc",
     "dev": "nodemon src/server.ts",
     "test": "jest --coverage",
+    "generate-verifier-key": "npx ts-node scripts/generateVerifierKey.ts",
     "seed": "node scripts/seedDb.js",
     "setup-indexes": "node scripts/setupIndexes.js"
   },
@@ -15,6 +16,7 @@
     "@pinata/sdk": "^2.1.0",
     "@story-protocol/core-sdk": "latest",
     "bcryptjs": "^2.4.3",
+    "callsite": "^1.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "ethers": "^6.9.0",
@@ -25,11 +27,13 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.0.0",
     "multer": "^1.4.5-lts.1",
+    "node-cron": "^4.2.1",
     "sharp": "^0.33.0",
     "winston": "^3.11.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/callsite": "^1.0.34",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/fluent-ffmpeg": "^2.1.28",
@@ -37,11 +41,14 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.0.0",
     "@types/node": "^25.0.0",
+    "@types/node-cron": "^3.0.11",
     "@types/sharp": "^0.31.1",
     "@types/supertest": "^6.0.3",
     "jest": "^29.7.0",
+    "mongodb-memory-server": "^10.4.1",
     "nodemon": "^3.0.2",
     "supertest": "^6.3.3",
+    "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }
