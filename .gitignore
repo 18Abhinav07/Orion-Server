@@ -1,0 +1,138 @@
+
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# production
+/build
+/dist
+/out
+/es
+/lib
+/tmp
+/yarn-debug.log*
+.npm
+/temp
+
+# misc
+.DS_Store
+Thumbs.db
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.vscode/
+npm-debug.log*
+yarn-error.log*
+
+# Mac
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+.directory
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.next/
+
+# Node.js
+/node_modules
+.npm
+*.tgz
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Vite
+.vite/
+/public/hot
+
+# Environment variables
+.env
+.env.*.local
+
+# Local development
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+
+# Database files
+*.sqlite
+*.sqlite3
+*.sql
+*.mysql
+*.psql
+
+# Credentials
+credentials.json
+secrets.json
+api.key
+config.json
+
+# temporary files
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.project
+.settings
+.classpath
+.c9/
+.python-version
+.tool-versions
+
+# Output of `npm pack`
+*.tgz
+
+# yarn
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+.yarn-integrity
+
+# others
+.nyc_output
+/packages/*/lib/
+/packages/*/dist/
+/packages/*/es/
+/packages/*/build/
+.cache
+.eslintcache
+.turbo
+/turbo
+
+# If you have an API folder at the root, you may want to ignore these too:
+/api/
+/functions/
+/server/
+/backend/

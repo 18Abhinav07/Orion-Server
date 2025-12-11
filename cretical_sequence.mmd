@@ -1,0 +1,139 @@
+sequenceDiagram
+    autonumber
+    actor Alice as 🟢 Creator (Alice)
+    actor Bob as 🔴 Remixer (Bob)
+    actor Admin as ⚖️ Admin (Judge)
+    participant FE as 🖥️ Frontend (React)
+    participant API as ⚙️ Backend API
+    participant DB as 🗄️ Database
+    participant IPFS as 📦 IPFS (Pinata)
+    participant SP as ⚡ Story Protocol (SDK/Chain)
+
+    Note over Alice, SP: SCENARIO A: ALICE REGISTERS ORIGINAL (The Happy Path)
+
+    Alice->>FE: Upload "Original_Video.mp4"
+    activate FE
+    
+    %% Step 1: Fingerprinting & Storage
+    FE->>API: POST /api/fingerprint (File, WalletAddr)
+    activate API
+    API->>API: Generate SHA256/pHash
+    API->>IPFS: Upload File & Metadata
+    IPFS-->>API: Return IPFS_CID
+    API->>DB: INSERT into ip_fingerprints (hash, cid, status='pending')
+    API-->>FE: Return { hash: "0xABC...", ipfsCid: "Qm123..." }
+    deactivate API
+
+    %% Step 2: The Police Check
+    FE->>API: POST /api/check-similarity (hash)
+    activate API
+    API->>DB: Query hash vs existing fingerprints
+    DB-->>API: No Match Found (Score: 0%)
+    API-->>FE: Return { score: 0, isMatch: false }
+    deactivate API
+
+    %% Step 3: Story Protocol Registration
+    FE->>Alice: Prompt: "Sign to Register IP"
+    Alice->>FE: Confirms MetaMask Signature
+    
+    FE->>SP: client.ipAsset.registerIpAsset(nft, ipMetadata)
+    activate SP
+    SP-->>FE: Return { ipId: "0xIP_A...", tokenId: 1 }
+    deactivate SP
+
+    %% Step 4: Licensing Configuration
+    FE->>SP: client.license.registerCommercialRemixPIL(royalty: 10%)
+    activate SP
+    SP-->>FE: Return { licenseTermsId: "55" }
+    deactivate SP
+    
+    FE->>SP: client.license.attachLicenseTerms(ipId, licenseTermsId)
+    
+    %% Step 5: Finalize Backend
+    FE->>API: PATCH /api/assets/{hash}/update (storyIpId, licenseTermsId)
+    API->>DB: UPDATE status='registered', story_ip_id='0xIP_A...'
+    FE-->>Alice: ✅ Success! Asset Registered & Protected.
+    deactivate FE
+
+    Note over Bob, SP: SCENARIO B: BOB UPLOADS A REMIX (The Detection Logic)
+
+    Bob->>FE: Upload "Remix_Video.mp4"
+    activate FE
+    FE->>API: POST /api/fingerprint (File)
+    activate API
+    API->>API: Generate Hash
+    API-->>FE: Return { hash: "0xXYZ..." }
+    deactivate API
+
+    FE->>API: POST /api/check-similarity (hash)
+    activate API
+    API->>DB: Compare vs Alice's Hash
+    
+    %% LOGIC BRANCHING BASED ON THRESHOLDS
+    alt Score < 40% (Clean)
+        API-->>FE: { score: 15, status: "CLEAN" }
+        FE-->>Bob: Proceed to Normal Registration (See Scenario A)
+        
+    else Score 40-70% (Suggestion)
+        API-->>FE: { score: 55, status: "WARNING", parentIpId: "0xIP_A" }
+        FE->>Bob: ⚠️ "Similiar content found. Are you sure?"
+        Bob->>FE: Click "Yes, I own this"
+        FE->>SP: registerIpAsset() (Proceeds as Original)
+        
+    else Score 70-90% (Gray Area - Admin Review)
+        API-->>FE: { score: 78, status: "REVIEW_REQUIRED" }
+        FE->>API: POST /api/disputes/create (hash, score, parentIpId)
+        API->>DB: INSERT into similarity_disputes
+        FE-->>Bob: ⏳ "Held for Review. Admin notified."
+        
+    else Score > 90% (Clear Match - Force Link)
+        API-->>FE: { score: 95, status: "DERIVATIVE", parentIpId: "0xIP_A", licenseTermsId: "55" }
+        FE-->>Bob: 🛑 "Derivative Detected! You must Link & Pay."
+        
+        Bob->>FE: Click "Link & Pay Royalty"
+        
+        %% Step 6: The Forced Link Flow
+        FE->>SP: client.license.mintLicenseTokens(parent: 0xIP_A, terms: 55)
+        activate SP
+        SP-->>FE: Return { licenseTokenId: 101 }
+        deactivate SP
+        
+        FE->>SP: client.ipAsset.registerIpAsset(Bob_Metadata)
+        SP-->>FE: Return { ipId: "0xIP_B" }
+        
+        FE->>SP: client.ipAsset.registerDerivative(child: 0xIP_B, parent: 0xIP_A)
+        SP-->>FE: Success: On-Chain Link Created
+        
+        FE->>API: PATCH /api/assets/update (Set is_derivative=true)
+        FE-->>Bob: ✅ Success: Derivative Licensed.
+    end
+    deactivate API
+    deactivate FE
+
+    Note over Admin, DB: SCENARIO C: ADMIN RESOLVES GRAY AREA (70-90%)
+
+    Admin->>FE: View "Dispute Queue"
+    FE->>API: GET /api/disputes/pending
+    API-->>FE: Return [Dispute #123 (Score 78%)]
+    
+    Admin->>FE: Review Videos side-by-side
+    
+    opt If Admin Rejects Match (False Alarm)
+        Admin->>FE: Click "Approve as Original"
+        FE->>API: POST /api/disputes/resolve (status: approved)
+        API->>DB: UPDATE status='approved'
+        API-->>Bob: Notification: "Registration Approved"
+    end
+    
+    opt If Admin Confirms Match (Enforce)
+        Admin->>FE: Click "Enforce Derivative"
+        
+        %% Admin Wallet Action
+        FE->>SP: registerDerivative(child: Bob_Pending_IP, parent: Alice_IP)
+        activate SP
+        SP-->>FE: Tx Hash
+        deactivate SP
+        
+        FE->>API: POST /api/disputes/resolve (status: enforced)
+        API-->>Bob: Notification: "Linked to Parent IP"
+    end
