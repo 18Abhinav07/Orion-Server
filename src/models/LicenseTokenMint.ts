@@ -148,15 +148,15 @@ const LicenseTokenMintSchema: Schema = new Schema({
   metadata: {
     ipMetadataURI: {
       type: String,
-      required: true,
+      default: '',
     },
     nftMetadataURI: {
       type: String,
-      required: true,
+      default: '',
     },
     ipType: {
       type: String,
-      required: true,
+      default: 'Unknown',
     },
     ipTitle: {
       type: String,
