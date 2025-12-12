@@ -266,23 +266,95 @@ export const deleteAsset = async (req: Request, res: Response) => {
     });
 
     if (!asset) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Asset not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Asset not found'
       });
     }
 
     logger.info('Deleted asset', { assetId: id });
-    res.json({ 
-      success: true, 
-      data: { message: 'Asset deleted successfully' } 
+    res.json({
+      success: true,
+      data: { message: 'Asset deleted successfully' }
     });
   } catch (error: any) {
     logger.error('Failed to delete asset', { assetId: req.params.id, error: error.message });
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to delete asset', 
-      details: error.message 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete asset',
+      details: error.message
+    });
+  }
+};
+
+/**
+ * Finalize asset after IP registration and license attachment on Story Protocol
+ * Called by frontend after successful on-chain registration
+ */
+export const finalizeAsset = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { storyIpId, licenseTermsId, licenseTxHash } = req.body;
+
+    // Validate required fields
+    if (!storyIpId || !licenseTermsId || !licenseTxHash) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields',
+        details: 'storyIpId, licenseTermsId, and licenseTxHash are required',
+      });
+    }
+
+    // Find MintToken by MongoDB _id
+    const mintToken = await MintToken.findById(id);
+
+    if (!mintToken) {
+      return res.status(404).json({
+        success: false,
+        error: 'Mint token not found',
+      });
+    }
+
+    // Update MintToken with Story Protocol details
+    mintToken.ipId = storyIpId;
+    mintToken.licenseTermsId = licenseTermsId;
+    mintToken.licenseTxHash = licenseTxHash;
+    mintToken.licenseAttachedAt = new Date();
+    mintToken.status = 'registered';
+
+    await mintToken.save();
+
+    logger.info(`Finalized asset with license attachment ${JSON.stringify({
+      assetId: id,
+      storyIpId,
+      licenseTermsId,
+      licenseTxHash,
+    })}`);
+
+    res.json({
+      success: true,
+      data: {
+        message: 'Asset finalized successfully',
+        mintToken: {
+          _id: mintToken._id,
+          ipId: mintToken.ipId,
+          licenseTermsId: mintToken.licenseTermsId,
+          licenseTxHash: mintToken.licenseTxHash,
+          status: mintToken.status,
+          licenseAttachedAt: mintToken.licenseAttachedAt,
+        },
+      },
+    });
+  } catch (error: any) {
+    logger.error(`Failed to finalize asset: ${JSON.stringify({
+      assetId: req.params.id,
+      error: error.message,
+      stack: error.stack,
+    })}`);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to finalize asset',
+      details: error.message,
     });
   }
 };

@@ -5,6 +5,7 @@ import {
   getAssetsByWallet,
   updateAsset,
   deleteAsset,
+  finalizeAsset,
 } from '../controllers/assetController';
 
 const router = Router();
@@ -15,5 +16,6 @@ router.get('/wallet/:address', getAssetsByWallet);
 router.get('/:id', getAsset);
 router.patch('/:id', updateAsset);
 router.delete('/:id', deleteAsset);
+router.post('/:id/finalize', finalizeAsset);
 
 export default router;

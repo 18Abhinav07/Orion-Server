@@ -6,12 +6,8 @@ import {
   mintLicenseToken,
   getIp,
 } from '../controllers/storyController';
-import { protect } from '../middleware/auth';
 
 const router = Router();
-
-// All Story Protocol interactions should be protected
-router.use(protect);
 
 router.post('/register-ip', registerIp);
 router.post('/attach-license', attachLicense);

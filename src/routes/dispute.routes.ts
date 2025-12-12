@@ -7,21 +7,16 @@ import {
   resolveDispute,
   addCommentToDispute,
 } from '../controllers/disputeController';
-import { protect } from '../middleware/auth';
-import { requireAdmin } from '../middleware/roleCheck';
 
 const router = Router();
-
-// All dispute routes are protected
-router.use(protect);
 
 router.post('/create', createDispute);
 router.get('/:id', getDisputeDetails);
 
-// Admin-only routes
-router.get('/', requireAdmin, getDisputes);
-router.get('/pending', requireAdmin, getPendingDisputes);
-router.post('/:id/resolve', requireAdmin, resolveDispute);
-router.post('/:id/comment', requireAdmin, addCommentToDispute);
+// All routes are now public for development
+router.get('/', getDisputes);
+router.get('/pending', getPendingDisputes);
+router.post('/:id/resolve', resolveDispute);
+router.post('/:id/comment', addCommentToDispute);
 
 export default router;

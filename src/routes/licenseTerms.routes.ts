@@ -1,6 +1,5 @@
 import express from 'express';
 import { findLicenseTerms, cacheLicenseTerms } from '../controllers/licenseTermsController';
-import { protect } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -16,12 +15,12 @@ router.get('/find', findLicenseTerms);
 /**
  * @route   POST /api/license-terms/cache
  * @desc    Cache newly registered license terms
- * @access  Protected (JWT required)
+ * @access  Public
  * @body    licenseType: License type (commercial_remix, non_commercial)
  * @body    royaltyPercent: Royalty percentage (0-100)
  * @body    licenseTermsId: Story Protocol license terms ID
  * @body    transactionHash: Blockchain transaction hash
  */
-router.post('/cache', protect, cacheLicenseTerms);
+router.post('/cache', cacheLicenseTerms);
 
 export default router;
