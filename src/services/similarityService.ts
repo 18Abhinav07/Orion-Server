@@ -1,6 +1,6 @@
 import { aiConfig } from '../config/ai.config';
 import logger from '../utils/logger';
-import { querySimilarEmbeddings, upsertEmbeddings } from './pineconeService';
+import { querySimilarEmbeddings, upsertEmbeddings, deleteEmbedding } from './pineconeService';
 import { generateContentEmbedding, generateContentHash, generatePineconeId } from './embeddingService';
 import { Embedding, IEmbedding } from '../models/Embedding';
 import { analyzeSimilarityWithLLM, LLMAnalysisResult } from './llmAnalysisService';
@@ -258,9 +258,13 @@ export async function checkContentSimilarity(
     });
 
     return result;
-  } catch (error) {
-    logger.error('Failed to check content similarity', { error, ipMetadataURI });
-    throw new Error('Similarity check failed');
+  } catch (error: any) {
+    logger.error(`Failed to check content similarity: ${JSON.stringify({
+      error: error.message,
+      stack: error.stack,
+      ipMetadataURI
+    })}`);
+    throw new Error(`Similarity check failed: ${error.message}`);
   }
 }
 
@@ -273,18 +277,49 @@ export async function registerContentEmbedding(
   storyIpId: string
 ): Promise<void> {
   try {
+    logger.info('Attempting to register content embedding', { contentHash, storyIpId });
+    
     const embedding = await Embedding.findOne({ contentHash });
 
     if (!embedding) {
-      throw new Error('Embedding not found for content hash');
+      const errorMsg = `Embedding not found for content hash: ${contentHash}`;
+      logger.error(errorMsg);
+      throw new Error(errorMsg);
     }
+
+    logger.info('Found embedding in MongoDB', {
+      pineconeId: embedding.pineconeId,
+      currentStatus: embedding.similarityStatus,
+      hasEmbeddingVector: !!embedding.embeddingVector,
+      vectorLength: embedding.embeddingVector?.length || 0,
+    });
 
     // Update MongoDB with Story IP ID
     embedding.storyIpId = storyIpId;
     embedding.similarityStatus = 'clean'; // Registered content is now baseline
     await embedding.save();
+    logger.info('Updated embedding in MongoDB', { contentHash, storyIpId });
 
-    // Move to registered namespace in Pinecone
+    // Delete from pending namespace first
+    try {
+      await deleteEmbedding(embedding.pineconeId, aiConfig.pinecone.namespace.pending);
+      logger.info('Deleted embedding from pending namespace', {
+        pineconeId: embedding.pineconeId,
+      });
+    } catch (deleteError: any) {
+      // Log but don't fail if deletion fails (embedding might not exist in pending)
+      logger.warn('Failed to delete from pending namespace (may not exist)', {
+        error: deleteError.message,
+        pineconeId: embedding.pineconeId,
+      });
+    }
+
+    // Add to registered namespace in Pinecone
+    logger.info('Upserting to registered namespace', {
+      pineconeId: embedding.pineconeId,
+      namespace: aiConfig.pinecone.namespace.registered,
+    });
+    
     await upsertEmbeddings(
       [
         {
@@ -309,8 +344,13 @@ export async function registerContentEmbedding(
       storyIpId,
       pineconeId: embedding.pineconeId,
     });
-  } catch (error) {
-    logger.error('Failed to register content embedding', { error, contentHash, storyIpId });
+  } catch (error: any) {
+    logger.error('Failed to register content embedding', { 
+      error: error.message,
+      stack: error.stack,
+      contentHash, 
+      storyIpId 
+    });
     throw error;
   }
 }

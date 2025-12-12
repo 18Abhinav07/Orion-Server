@@ -10,6 +10,7 @@
     "test": "jest --coverage",
     "generate-verifier-key": "npx ts-node scripts/generateVerifierKey.ts",
     "seed": "node scripts/seedDb.js",
+    "seed:license-terms": "npx ts-node src/scripts/seedLicenseTerms.ts",
     "setup-indexes": "node scripts/setupIndexes.js"
   },
   "dependencies": {

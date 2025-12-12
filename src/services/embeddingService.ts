@@ -55,10 +55,13 @@ export async function generateEmbedding(input: string | string[]): Promise<numbe
 
     return embeddings;
   } catch (error: any) {
-    logger.error('Failed to generate embeddings with Voyage AI', { 
-      error: error.response?.data || error.message 
-    });
-    throw new Error('Embedding generation failed');
+    logger.error(`Failed to generate embeddings with Voyage AI: ${JSON.stringify({
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      statusText: error.response?.statusText
+    })}`);
+    throw new Error(`Embedding generation failed: ${error.response?.data?.message || error.message}`);
   }
 }
 
@@ -117,7 +120,7 @@ async function extractVideoFrames(videoPath: string, outputDir: string): Promise
         }
       })
       .on('error', (error) => {
-        logger.error('Failed to extract video frames', { error, videoPath });
+        logger.error(`Failed to extract video frames: ${JSON.stringify({ error: error.message, videoPath })}`);
         reject(error);
       })
       .run();
@@ -204,8 +207,12 @@ export async function generateContentEmbedding(
 
   try {
     if (assetType === 'text') {
-      // For text, generate embedding directly from URI or content
-      const [embedding] = await generateEmbedding(contentURI);
+      // For text, download from IPFS and read content
+      logger.info(`Generating text embedding for: ${contentURI}`);
+      const filePath = await downloadFromIPFS(contentURI, tempDir);
+      const textContent = await fs.readFile(filePath, 'utf-8');
+      logger.info(`Text content downloaded, length: ${textContent.length} characters`);
+      const [embedding] = await generateEmbedding(textContent);
       return { embedding };
     }
 

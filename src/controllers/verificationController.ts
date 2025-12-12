@@ -69,24 +69,43 @@ export const generateMintToken = async (req: Request, res: Response) => {
 
   try {
     // ============ RAG SIMILARITY CHECK ============
-    logger.info('Starting RAG similarity check for content', {
-      creatorAddress,
-      contentHash,
-      assetType,
-    });
+    const skipSimilarityCheck = process.env.SKIP_SIMILARITY_CHECK === 'true';
 
-    const similarityResult = await checkContentSimilarity(
-      ipMetadataURI,
-      nftMetadataURI,
-      assetType,
-      creatorAddress
-    );
+    let similarityResult;
+    if (skipSimilarityCheck) {
+      logger.info(`⚠️  SKIPPING similarity check (SKIP_SIMILARITY_CHECK=true) for ${JSON.stringify({
+        creatorAddress,
+        contentHash,
+        assetType,
+      })}`);
+      // Return a clean result for testing
+      similarityResult = {
+        status: 'CLEAN' as const,
+        message: 'Similarity check skipped for testing',
+        similarityScore: 0,
+        topMatch: null,
+        matches: [],
+      };
+    } else {
+      logger.info(`Starting RAG similarity check for content: ${JSON.stringify({
+        creatorAddress,
+        contentHash,
+        assetType,
+      })}`);
 
-    logger.info('Similarity check completed', {
-      status: similarityResult.status,
-      similarityScore: similarityResult.similarityScore,
-      topMatchContentHash: similarityResult.topMatch?.contentHash,
-    });
+      similarityResult = await checkContentSimilarity(
+        ipMetadataURI,
+        nftMetadataURI,
+        assetType,
+        creatorAddress
+      );
+
+      logger.info(`Similarity check completed: ${JSON.stringify({
+        status: similarityResult.status,
+        similarityScore: similarityResult.similarityScore,
+        topMatchContentHash: similarityResult.topMatch?.contentHash,
+      })}`);
+    }
 
     // If content is BLOCKED, reject immediately
     if (similarityResult.status === 'BLOCKED') {
@@ -188,7 +207,10 @@ export const generateMintToken = async (req: Request, res: Response) => {
       data: responseData
     });
   } catch (error: any) {
-    logger.error(`Error generating mint token: ${error.message}`);
+    logger.error(`Error generating mint token: ${JSON.stringify({
+      message: error.message,
+      stack: error.stack
+    })}`);
     return formatError(res, 'Failed to generate mint token.', error.message, 500);
   }
 };
@@ -349,6 +371,140 @@ export const updateMintToken = async (req: Request, res: Response) => {
       success: false,
       error: 'SERVER_ERROR',
       message: 'Failed to update token'
+    });
+  }
+};
+
+export const finalizeMintToken = async (req: Request, res: Response) => {
+  logger.info(`finalizeMintToken request for nonce ${req.params.nonce}, body: ${JSON.stringify(req.body)}`);
+  try {
+    const { nonce } = req.params;
+    const { 
+      licenseTermsId, 
+      licenseType, 
+      royaltyPercent, 
+      allowDerivatives, 
+      commercialUse, 
+      licenseTxHash 
+    } = req.body;
+
+    // Validate nonce
+    if (!nonce) {
+      logger.warn('finalizeMintToken failed: Nonce is required.');
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_INPUT',
+        message: 'Nonce is required'
+      });
+    }
+
+    // Validate required license fields
+    if (!licenseTermsId || !licenseType || royaltyPercent === undefined || 
+        allowDerivatives === undefined || commercialUse === undefined || !licenseTxHash) {
+      logger.warn('finalizeMintToken failed: Missing required license fields.');
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_INPUT',
+        message: 'Missing required fields: licenseTermsId, licenseType, royaltyPercent, allowDerivatives, commercialUse, and licenseTxHash are required'
+      });
+    }
+
+    // Validate license type
+    const validLicenseTypes = ['commercial_remix', 'non_commercial'];
+    if (!validLicenseTypes.includes(licenseType)) {
+      logger.warn(`finalizeMintToken failed: Invalid licenseType ${licenseType}`);
+      return res.status(422).json({
+        success: false,
+        error: 'VALIDATION_ERROR',
+        message: `Invalid licenseType. Must be one of: ${validLicenseTypes.join(', ')}`
+      });
+    }
+
+    // Validate royalty percentage
+    if (typeof royaltyPercent !== 'number' || royaltyPercent < 0 || royaltyPercent > 100) {
+      logger.warn(`finalizeMintToken failed: Invalid royaltyPercent ${royaltyPercent}`);
+      return res.status(422).json({
+        success: false,
+        error: 'VALIDATION_ERROR',
+        message: 'royaltyPercent must be a number between 0 and 100'
+      });
+    }
+
+    // Find the token
+    const token = await MintToken.findOne({ nonce: parseInt(nonce, 10) });
+    if (!token) {
+      logger.warn(`finalizeMintToken failed: Token not found for nonce ${nonce}`);
+      return res.status(404).json({
+        success: false,
+        error: 'TOKEN_NOT_FOUND',
+        message: `No token found with nonce: ${nonce}`
+      });
+    }
+
+    // Verify token is in 'used' status (IP already registered)
+    if (token.status !== 'used') {
+      logger.warn(`finalizeMintToken failed: Token with nonce ${nonce} has status '${token.status}', must be 'used'`);
+      return res.status(409).json({
+        success: false,
+        error: 'INVALID_STATUS',
+        message: `Token must be in 'used' status. Current status: ${token.status}`
+      });
+    }
+
+    // Check if already finalized (if license terms already attached)
+    if (token.licenseTermsId) {
+      logger.warn(`Token with nonce ${nonce} is already finalized.`);
+      return res.status(409).json({
+        success: false,
+        error: 'ALREADY_FINALIZED',
+        message: 'Token has already been finalized with license terms',
+        existingLicense: {
+          licenseTermsId: token.licenseTermsId,
+          licenseType: token.licenseType,
+          royaltyPercent: token.royaltyPercent,
+          licenseTxHash: token.licenseTxHash,
+          licenseAttachedAt: token.licenseAttachedAt
+        }
+      });
+    }
+
+    // Update token with license metadata
+    token.licenseTermsId = licenseTermsId;
+    token.licenseType = licenseType;
+    token.royaltyPercent = royaltyPercent;
+    token.allowDerivatives = allowDerivatives;
+    token.commercialUse = commercialUse;
+    token.licenseTxHash = licenseTxHash;
+    token.licenseAttachedAt = new Date();
+    token.status = 'registered';
+    await token.save();
+
+    logger.info(`Successfully finalized token ${nonce} with license terms ${licenseTermsId}`);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Token finalized with license terms',
+      data: {
+        nonce: token.nonce,
+        status: token.status,
+        ipId: token.ipId,
+        license: {
+          licenseTermsId: token.licenseTermsId,
+          licenseType: token.licenseType,
+          royaltyPercent: token.royaltyPercent,
+          allowDerivatives: token.allowDerivatives,
+          commercialUse: token.commercialUse,
+          licenseTxHash: token.licenseTxHash,
+          licenseAttachedAt: Math.floor(token.licenseAttachedAt!.getTime() / 1000)
+        }
+      }
+    });
+  } catch (error: any) {
+    logger.error(`Error finalizing mint token for nonce ${req.params.nonce}:`, error.message);
+    return res.status(500).json({
+      success: false,
+      error: 'SERVER_ERROR',
+      message: 'Failed to finalize token'
     });
   }
 };
