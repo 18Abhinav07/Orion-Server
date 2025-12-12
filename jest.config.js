@@ -8,6 +8,9 @@ module.exports = {
   clearMocks: true,
   resetMocks: true,
   restoreMocks: true,
+  transformIgnorePatterns: [
+    'node_modules/(?!(uuid)/)',
+  ],
   moduleNameMapper: {
     // Mock for story-protocol SDK if it causes issues during tests
     // '^@story-protocol/core-sdk$': '<rootDir>/tests/mocks/storyProtocolSdk.ts',

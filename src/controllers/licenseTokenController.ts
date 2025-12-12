@@ -2,7 +2,17 @@ import { Request, Response } from 'express';
 import LicenseTokenMint from '../models/LicenseTokenMint';
 import MarketplaceOrder from '../models/MarketplaceOrder';
 import logger from '../utils/logger';
-import { v4 as uuidv4 } from 'uuid';
+import { randomBytes } from 'crypto';
+
+// Simple UUID v4 generator to avoid ESM import issues in Jest
+function generateUUID(): string {
+  const bytes = randomBytes(16);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // Version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // Variant 10
+  
+  const hex = bytes.toString('hex');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
 
 /**
  * Record a new license token mint
@@ -95,7 +105,7 @@ export const recordLicenseTokenMint = async (req: Request, res: Response) => {
 
     // Create marketplace order record
     const marketplaceOrder = new MarketplaceOrder({
-      orderId: uuidv4(),
+      orderId: generateUUID(),
       orderType: 'license_purchase',
       txHash,
       blockNumber,
@@ -171,7 +181,7 @@ export const getLicenseTokensByUser = async (req: Request, res: Response) => {
     }
 
     // Build query filter
-    const filter: any = { currentOwner: walletAddress.toLowerCase() };
+    const filter: any = { currentOwner: walletAddress };
 
     if (status) {
       filter.status = status;
