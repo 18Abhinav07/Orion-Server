@@ -6,6 +6,7 @@ import logger from './utils/logger';
 
 // Import routes
 import authRoutes from './routes/auth.routes';
+import assetRoutes from './routes/asset.routes';
 import fingerprintRoutes from './routes/fingerprint.routes';
 import similarityRoutes from './routes/similarity.routes';
 import storyRoutes from './routes/story.routes';
@@ -31,6 +32,7 @@ app.use((req, res, next) => {
 
 // API Routes
 app.use('/auth', authRoutes);
+app.use('/api/assets', assetRoutes);
 app.use('/api/fingerprint', fingerprintRoutes);
 app.use('/api/similarity', similarityRoutes);
 app.use('/api/story', storyRoutes);

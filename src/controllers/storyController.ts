@@ -4,13 +4,13 @@ import logger from '../utils/logger';
 // TODO: Implement IP asset registration on Story Protocol
 export const registerIp = async (req: Request, res: Response) => {
   logger.debug(`registerIp called with body: ${JSON.stringify(req.body)}`);
-  res.status(501).json({ message: 'Not Implemented' });
+  res.status(501).json({ message: 'Not Implemented - Frontend handles Story Protocol' });
 };
 
 // TODO: Implement attaching license terms to an IP
 export const attachLicense = async (req: Request, res: Response) => {
   logger.debug(`attachLicense called with body: ${JSON.stringify(req.body)}`);
-  res.status(501).json({ message: 'Not Implemented' });
+  res.status(501).json({ message: 'Not Implemented - Frontend handles Story Protocol' });
 };
 
 // TODO: Implement linking a child to a parent IP
