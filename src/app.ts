@@ -15,6 +15,7 @@ import verificationRoutes from './routes/verification.routes';
 import adminSimilarityRoutes from './routes/admin.similarity.routes';
 import licenseTermsRoutes from './routes/licenseTerms.routes';
 import marketplaceRoutes from './routes/marketplace.routes';
+import licenseTokenRoutes from './routes/licenseToken.routes';
 
 const app = express();
 
@@ -41,6 +42,7 @@ app.use('/api/verification', verificationRoutes);
 app.use('/api/admin/similarity', adminSimilarityRoutes);
 app.use('/api/license-terms', licenseTermsRoutes);
 app.use('/api/marketplace', marketplaceRoutes);
+app.use('/api/license-tokens', licenseTokenRoutes);
 
 // Health Check
 app.get('/health', (req, res) => {
