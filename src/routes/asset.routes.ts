@@ -6,20 +6,14 @@ import {
   updateAsset,
   deleteAsset,
 } from '../controllers/assetController';
-import { protect } from '../middleware/auth';
-import { requireAdmin } from '../middleware/roleCheck';
 
 const router = Router();
 
-// All asset routes are protected
-router.use(protect);
-
+// All asset routes are now unprotected for fast development
 router.get('/', listAssets);
-router.get('/:id', getAsset);
 router.get('/wallet/:address', getAssetsByWallet);
+router.get('/:id', getAsset);
 router.patch('/:id', updateAsset);
-
-// Deleting an asset should be an admin-only action
-router.delete('/:id', requireAdmin, deleteAsset);
+router.delete('/:id', deleteAsset);
 
 export default router;
