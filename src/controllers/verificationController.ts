@@ -25,6 +25,13 @@ export const generateMintToken = async (req: Request, res: Response) => {
     ipMetadataURI,
     nftMetadataURI,
     assetType, // 'video' | 'image' | 'audio' | 'text'
+    // IP Metadata fields (optional)
+    name,
+    description,
+    image,
+    external_url,
+    attributes,
+    tags
   } = req.body;
 
   // Validate required fields
@@ -185,6 +192,13 @@ export const generateMintToken = async (req: Request, res: Response) => {
       status: 'pending',
       sessionId: req.body.sessionId || 'direct-api',
       fingerprintId: req.body.fingerprintId || 'not-tracked',
+      // IP Metadata fields
+      ...(name && { name }),
+      ...(description && { description }),
+      ...(image && { image }),
+      ...(external_url && { external_url }),
+      ...(attributes && { attributes }),
+      ...(tags && { tags }),
     });
 
     await mintToken.save();
@@ -385,7 +399,14 @@ export const finalizeMintToken = async (req: Request, res: Response) => {
       royaltyPercent, 
       allowDerivatives, 
       commercialUse, 
-      licenseTxHash 
+      licenseTxHash,
+      // Optional IP Metadata updates
+      name,
+      description,
+      image,
+      external_url,
+      attributes,
+      tags
     } = req.body;
 
     // Validate nonce
@@ -477,6 +498,15 @@ export const finalizeMintToken = async (req: Request, res: Response) => {
     token.licenseTxHash = licenseTxHash;
     token.licenseAttachedAt = new Date();
     token.status = 'registered';
+    
+    // Update IP metadata if provided
+    if (name) token.name = name;
+    if (description) token.description = description;
+    if (image) token.image = image;
+    if (external_url) token.external_url = external_url;
+    if (attributes) token.attributes = attributes;
+    if (tags) token.tags = tags;
+    
     await token.save();
 
     logger.info(`Successfully finalized token ${nonce} with license terms ${licenseTermsId}`);

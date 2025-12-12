@@ -28,6 +28,16 @@ export interface IMintToken extends Document {
   commercialUse?: boolean;
   licenseTxHash?: string;
   licenseAttachedAt?: Date;
+  // IP Metadata fields (denormalized for fast queries)
+  name?: string;
+  description?: string;
+  image?: string;
+  external_url?: string;
+  attributes?: Array<{
+    trait_type: string;
+    value: string | number;
+  }>;
+  tags?: string[];
 }
 
 const MintTokenSchema: Schema = new Schema({
@@ -72,6 +82,16 @@ const MintTokenSchema: Schema = new Schema({
   commercialUse: { type: Boolean, indexed: true },
   licenseTxHash: { type: String },
   licenseAttachedAt: { type: Date },
+  // IP Metadata fields (denormalized for fast queries)
+  name: { type: String },
+  description: { type: String },
+  image: { type: String },
+  external_url: { type: String },
+  attributes: [{
+    trait_type: { type: String },
+    value: { type: Schema.Types.Mixed }
+  }],
+  tags: [{ type: String }],
 }, { timestamps: true });
 
 export default mongoose.model<IMintToken>('MintToken', MintTokenSchema);
