@@ -6,7 +6,7 @@ import { formatSuccess, formatError } from '../utils/responseFormatter';
 import logger from '../utils/logger';
 
 async function getNextNonce(): Promise<number> {
-  logger.debug('Attempting to get next nonce...');
+  logger.info('Attempting to get next nonce...');
   const counter = await Counter.findByIdAndUpdate(
     { _id: 'mint_token_nonce' },
     { $inc: { seq: 1 } },
@@ -17,7 +17,7 @@ async function getNextNonce(): Promise<number> {
 }
 
 export const generateMintToken = async (req: Request, res: Response) => {
-  logger.debug(`generateMintToken request body: ${JSON.stringify(req.body)}`);
+  logger.info(`generateMintToken request body: ${JSON.stringify(req.body)}`);
   const {
     creatorAddress,
     contentHash,
@@ -58,11 +58,18 @@ export const generateMintToken = async (req: Request, res: Response) => {
   try {
     const nonce = await getNextNonce();
     const expiryTimestamp = Math.floor(Date.now() / 1000) + 900; // 15 minutes
-    logger.debug(`Generating token with nonce ${nonce} and expiry ${expiryTimestamp}`);
+    logger.info(`Generating token with nonce ${nonce} and expiry ${expiryTimestamp}`);
+
+    // Hash the URIs first to match the contract's _hashMessage function
+    const ipMetadataHash = ethers.keccak256(ethers.toUtf8Bytes(ipMetadataURI));
+    const nftMetadataHash = ethers.keccak256(ethers.toUtf8Bytes(nftMetadataURI));
+    
+    logger.info(`Hashed ipMetadataURI: ${ipMetadataHash}, nftMetadataURI: ${nftMetadataHash}`);
+    logger.info(`Message hash inputs: creatorAddress=${creatorAddress}, contentHash=${contentHash}, ipMetadataHash=${ipMetadataHash}, nftMetadataHash=${nftMetadataHash}, nonce=${nonce}, expiryTimestamp=${expiryTimestamp}`);
 
     const message = ethers.solidityPackedKeccak256(
-      ['address', 'bytes32', 'string', 'string', 'uint256', 'uint256'],
-      [creatorAddress, contentHash, ipMetadataURI, nftMetadataURI, nonce, expiryTimestamp]
+      ['address', 'bytes32', 'bytes32', 'bytes32', 'uint256', 'uint256'],
+      [creatorAddress, contentHash, ipMetadataHash, nftMetadataHash, nonce, expiryTimestamp]
     );
 
     const privateKey = process.env.BACKEND_VERIFIER_PRIVATE_KEY;
@@ -71,8 +78,11 @@ export const generateMintToken = async (req: Request, res: Response) => {
       return formatError(res, 'Server configuration error.', 'Verifier key not set.', 500);
     }
     const wallet = new ethers.Wallet(privateKey);
+    const signerAddress = wallet.address;
+    logger.info(`Signing with wallet address: ${signerAddress}`);
+    
     const signature = await wallet.signMessage(ethers.getBytes(message));
-    logger.debug(`Generated signature ${signature} for message ${message}`);
+    logger.info(`Generated signature ${signature} for message ${message}`);
 
     const mintToken = new MintToken({
       nonce,
@@ -108,7 +118,7 @@ export const generateMintToken = async (req: Request, res: Response) => {
 };
 
 export const getTokenStatus = async (req: Request, res: Response) => {
-  logger.debug(`getTokenStatus request params: ${JSON.stringify(req.params)}`);
+  logger.info(`getTokenStatus request params: ${JSON.stringify(req.params)}`);
   try {
     const { nonce } = req.params;
     if (!nonce) {
@@ -175,7 +185,7 @@ export const getTokenStatus = async (req: Request, res: Response) => {
 };
 
 export const updateMintToken = async (req: Request, res: Response) => {
-  logger.debug(`updateMintToken request for nonce ${req.params.nonce}`);
+  logger.info(`updateMintToken request for nonce ${req.params.nonce}, body: ${JSON.stringify(req.body)}`);
   try {
     const { nonce } = req.params;
     const { ipId, tokenId, txHash } = req.body;
@@ -251,7 +261,7 @@ export const updateMintToken = async (req: Request, res: Response) => {
 };
 
 export const revokeToken = async (req: Request, res: Response) => {
-  logger.debug(`revokeToken request body: ${JSON.stringify(req.body)}`);
+  logger.info(`revokeToken request body: ${JSON.stringify(req.body)}`);
   try {
     const { nonce, reason } = req.body;
     if (!nonce) {
