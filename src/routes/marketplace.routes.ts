@@ -1,5 +1,5 @@
 import express from 'express';
-import { getMarketplaceIPs } from '../controllers/marketplaceController';
+import { getMarketplaceIPs, getLicensedIPs } from '../controllers/marketplaceController';
 
 const router = express.Router();
 
@@ -16,5 +16,18 @@ const router = express.Router();
  * @query   limit: Items per page (default: 20, max: 100)
  */
 router.get('/ips', getMarketplaceIPs);
+
+/**
+ * @route   GET /api/marketplace/licensed
+ * @desc    Get all licensed IPs (regardless of creator) for marketplace
+ * @access  Public
+ * @query   commercialUse: Filter by commercial use (true/false)
+ * @query   maxRoyalty: Maximum royalty percentage (0-100)
+ * @query   minRoyalty: Minimum royalty percentage (0-100)
+ * @query   licenseType: Filter by license type (commercial_remix, non_commercial)
+ * @query   page: Page number (default: 1)
+ * @query   limit: Items per page (default: 20, max: 100)
+ */
+router.get('/licensed', getLicensedIPs);
 
 export default router;
