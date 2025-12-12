@@ -32,3 +32,26 @@ export const protect = (req: Request, res: Response, next: NextFunction) => {
     return res.status(401).json({ message: 'Unauthorized: Invalid token' });
   }
 };
+
+/**
+ * Admin authorization middleware
+ * Checks if user has admin role
+ * Must be used after protect middleware
+ */
+export const isAdmin = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Unauthorized: No user information' });
+  }
+
+  // Check if user has admin role
+  const user = req.user as any;
+  
+  if (user.role !== 'admin') {
+    return res.status(403).json({ 
+      message: 'Forbidden: Admin access required',
+      error: 'INSUFFICIENT_PERMISSIONS'
+    });
+  }
+
+  next();
+};

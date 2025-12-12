@@ -10,7 +10,7 @@ export interface IMintToken extends Document {
   signature: string;
   issuedAt: Date;
   expiresAt: Date;
-  status: 'pending' | 'used' | 'expired' | 'revoked';
+  status: 'pending' | 'used' | 'expired' | 'revoked' | 'registered';
   ipId?: string;
   tokenId?: number;
   txHash?: string;
@@ -20,6 +20,14 @@ export interface IMintToken extends Document {
   revokedReason?: string;
   sessionId: string;
   fingerprintId: string;
+  // License terms fields
+  licenseTermsId?: string;
+  licenseType?: 'commercial_remix' | 'non_commercial';
+  royaltyPercent?: number;
+  allowDerivatives?: boolean;
+  commercialUse?: boolean;
+  licenseTxHash?: string;
+  licenseAttachedAt?: Date;
 }
 
 const MintTokenSchema: Schema = new Schema({
@@ -34,7 +42,7 @@ const MintTokenSchema: Schema = new Schema({
   expiresAt: { type: Date, required: true, indexed: true },
   status: {
     type: String,
-    enum: ['pending', 'used', 'expired', 'revoked'],
+    enum: ['pending', 'used', 'expired', 'revoked', 'registered'],
     default: 'pending',
     indexed: true,
   },
@@ -47,6 +55,23 @@ const MintTokenSchema: Schema = new Schema({
   revokedReason: { type: String },
   sessionId: { type: String, indexed: true },
   fingerprintId: { type: String },
+  // License terms fields
+  licenseTermsId: { type: String, indexed: true },
+  licenseType: {
+    type: String,
+    enum: ['commercial_remix', 'non_commercial'],
+    indexed: true,
+  },
+  royaltyPercent: {
+    type: Number,
+    min: 0,
+    max: 100,
+    indexed: true,
+  },
+  allowDerivatives: { type: Boolean },
+  commercialUse: { type: Boolean, indexed: true },
+  licenseTxHash: { type: String },
+  licenseAttachedAt: { type: Date },
 }, { timestamps: true });
 
 export default mongoose.model<IMintToken>('MintToken', MintTokenSchema);

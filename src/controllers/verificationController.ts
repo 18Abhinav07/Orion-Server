@@ -4,6 +4,7 @@ import MintToken from '../models/MintToken';
 import Counter from '../models/Counter';
 import { formatSuccess, formatError } from '../utils/responseFormatter';
 import logger from '../utils/logger';
+import { checkContentSimilarity, registerContentEmbedding } from '../services/similarityService';
 
 async function getNextNonce(): Promise<number> {
   logger.info('Attempting to get next nonce...');
@@ -23,15 +24,26 @@ export const generateMintToken = async (req: Request, res: Response) => {
     contentHash,
     ipMetadataURI,
     nftMetadataURI,
+    assetType, // 'video' | 'image' | 'audio' | 'text'
   } = req.body;
 
   // Validate required fields
-  if (!creatorAddress || !contentHash || !ipMetadataURI || !nftMetadataURI) {
+  if (!creatorAddress || !contentHash || !ipMetadataURI || !nftMetadataURI || !assetType) {
     logger.warn(`generateMintToken failed: Missing required parameters. Body: ${JSON.stringify(req.body)}`);
     return res.status(400).json({
       success: false,
       error: 'INVALID_INPUT',
-      message: 'Missing required field: ' + (!creatorAddress ? 'creatorAddress' : !contentHash ? 'contentHash' : !ipMetadataURI ? 'ipMetadataURI' : 'nftMetadataURI')
+      message: 'Missing required field: ' + (!creatorAddress ? 'creatorAddress' : !contentHash ? 'contentHash' : !ipMetadataURI ? 'ipMetadataURI' : !nftMetadataURI ? 'nftMetadataURI' : 'assetType')
+    });
+  }
+
+  // Validate assetType
+  if (!['video', 'image', 'audio', 'text'].includes(assetType)) {
+    logger.warn(`generateMintToken failed: Invalid assetType ${assetType}`);
+    return res.status(400).json({
+      success: false,
+      error: 'INVALID_INPUT',
+      message: 'Invalid assetType. Must be one of: video, image, audio, text'
     });
   }
 
@@ -56,6 +68,63 @@ export const generateMintToken = async (req: Request, res: Response) => {
   }
 
   try {
+    // ============ RAG SIMILARITY CHECK ============
+    logger.info('Starting RAG similarity check for content', {
+      creatorAddress,
+      contentHash,
+      assetType,
+    });
+
+    const similarityResult = await checkContentSimilarity(
+      ipMetadataURI,
+      nftMetadataURI,
+      assetType,
+      creatorAddress
+    );
+
+    logger.info('Similarity check completed', {
+      status: similarityResult.status,
+      similarityScore: similarityResult.similarityScore,
+      topMatchContentHash: similarityResult.topMatch?.contentHash,
+    });
+
+    // If content is BLOCKED, reject immediately
+    if (similarityResult.status === 'BLOCKED') {
+      logger.warn('Content blocked due to high similarity', {
+        contentHash,
+        similarityScore: similarityResult.similarityScore,
+        topMatch: similarityResult.topMatch,
+      });
+
+      return res.status(403).json({
+        success: false,
+        error: 'SIMILARITY_BLOCKED',
+        message: similarityResult.message,
+        similarity: {
+          score: similarityResult.similarityScore,
+          topMatch: similarityResult.topMatch,
+          matches: similarityResult.matches,
+        }
+      });
+    }
+
+    // If WARNING, include similarity info in successful response
+    const similarityWarning = similarityResult.status === 'WARNING' ? {
+      warning: true,
+      message: similarityResult.message,
+      score: similarityResult.similarityScore,
+      topMatch: similarityResult.topMatch,
+      matches: similarityResult.matches,
+    } : undefined;
+
+    if (similarityWarning) {
+      logger.info('Content has similarity warning', {
+        contentHash,
+        similarityScore: similarityResult.similarityScore,
+      });
+    }
+
+    // ============ CONTINUE WITH SIGNATURE GENERATION ============
     const nonce = await getNextNonce();
     const expiryTimestamp = Math.floor(Date.now() / 1000) + 900; // 15 minutes
     logger.info(`Generating token with nonce ${nonce} and expiry ${expiryTimestamp}`);
@@ -102,14 +171,21 @@ export const generateMintToken = async (req: Request, res: Response) => {
     await mintToken.save();
     logger.info(`Successfully saved mint token for nonce ${nonce}`);
 
+    const responseData: any = {
+      signature,
+      nonce,
+      expiresAt: expiryTimestamp,
+      expiresIn: 900
+    };
+
+    // Add similarity warning if present
+    if (similarityWarning) {
+      responseData.similarity = similarityWarning;
+    }
+
     return res.status(200).json({
       success: true,
-      data: {
-        signature,
-        nonce,
-        expiresAt: expiryTimestamp,
-        expiresIn: 900
-      }
+      data: responseData
     });
   } catch (error: any) {
     logger.error(`Error generating mint token: ${error.message}`);
@@ -240,6 +316,23 @@ export const updateMintToken = async (req: Request, res: Response) => {
     token.usedAt = new Date();
     await token.save();
     logger.info(`Successfully marked token ${nonce} as used with ipId ${ipId}`);
+
+    // ============ REGISTER EMBEDDING IN PINECONE ============
+    // After successful minting, move embedding from pending to registered namespace
+    try {
+      await registerContentEmbedding(token.contentHash, ipId);
+      logger.info('Successfully registered content embedding in Pinecone', {
+        contentHash: token.contentHash,
+        ipId,
+      });
+    } catch (embeddingError: any) {
+      // Log error but don't fail the update (minting already succeeded)
+      logger.error('Failed to register embedding in Pinecone (non-critical)', {
+        error: embeddingError.message,
+        contentHash: token.contentHash,
+        ipId,
+      });
+    }
 
     return res.status(200).json({
       success: true,
