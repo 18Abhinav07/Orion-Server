@@ -104,7 +104,8 @@ export const generateMintToken = async (req: Request, res: Response) => {
         ipMetadataURI,
         nftMetadataURI,
         assetType,
-        creatorAddress
+        creatorAddress,
+        contentHash
       );
 
       logger.info(`Similarity check completed: ${JSON.stringify({

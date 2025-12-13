@@ -17,10 +17,7 @@ export const aiConfig = {
     apiKey: process.env.PINECONE_API_KEY || '',
     environment: process.env.PINECONE_ENVIRONMENT || 'us-east-1',
     indexName: process.env.PINECONE_INDEX_NAME || 'orion-ip-embeddings',
-    namespace: {
-      registered: process.env.PINECONE_NAMESPACE_REGISTERED || 'registered-ips',
-      pending: process.env.PINECONE_NAMESPACE_PENDING || 'pending-review',
-    },
+    namespace: process.env.PINECONE_NAMESPACE || 'orion-embeddings', // Single namespace for all embeddings
   },
   similarity: {
     thresholdClean: parseInt(process.env.SIMILARITY_THRESHOLD_CLEAN || '40', 10), // 0-40% = clean

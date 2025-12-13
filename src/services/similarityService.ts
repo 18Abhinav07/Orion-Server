@@ -1,8 +1,8 @@
 import { aiConfig } from '../config/ai.config';
 import logger from '../utils/logger';
-import { querySimilarEmbeddings, upsertEmbeddings, deleteEmbedding } from './pineconeService';
-import { generateContentEmbedding, generateContentHash, generatePineconeId } from './embeddingService';
-import { Embedding, IEmbedding } from '../models/Embedding';
+import { querySimilarEmbeddings, upsertEmbeddings } from './pineconeService';
+import { generateContentEmbedding, generatePineconeId } from './embeddingService';
+import { Embedding } from '../models/Embedding';
 import { analyzeSimilarityWithLLM, LLMAnalysisResult } from './llmAnalysisService';
 
 /**
@@ -83,7 +83,8 @@ export async function checkContentSimilarity(
   ipMetadataURI: string,
   nftMetadataURI: string,
   assetType: 'video' | 'image' | 'audio' | 'text',
-  creatorAddress: string
+  creatorAddress: string,
+  contentHash: string // Use file's SHA256 hash for consistency
 ): Promise<SimilarityCheckResult> {
   try {
     logger.info('Starting content similarity check', {
@@ -91,10 +92,8 @@ export async function checkContentSimilarity(
       nftMetadataURI,
       assetType,
       creatorAddress,
+      contentHash,
     });
-
-    // Generate content hash
-    const contentHash = generateContentHash(ipMetadataURI, nftMetadataURI);
 
     // Check if this exact content already exists
     const existingEmbedding = await Embedding.findOne({ contentHash });
@@ -127,11 +126,11 @@ export async function checkContentSimilarity(
       assetType
     );
 
-    // Query Pinecone for similar embeddings
+    // Query Pinecone for similar embeddings (from single namespace)
     const similarMatches = await querySimilarEmbeddings(
       embedding,
       aiConfig.similarity.topKMatches,
-      aiConfig.pinecone.namespace.registered
+      aiConfig.pinecone.namespace
     );
 
     logger.info('Retrieved similar embeddings from Pinecone', {
@@ -229,7 +228,7 @@ export async function checkContentSimilarity(
 
     await newEmbedding.save();
 
-    // If not blocked, upsert to Pinecone pending namespace for future comparisons
+    // Upsert to Pinecone for future similarity comparisons (single namespace)
     if (status !== 'BLOCKED') {
       await upsertEmbeddings(
         [
@@ -246,7 +245,7 @@ export async function checkContentSimilarity(
             },
           },
         ],
-        aiConfig.pinecone.namespace.pending
+        aiConfig.pinecone.namespace
       );
     }
 
@@ -270,7 +269,7 @@ export async function checkContentSimilarity(
 
 /**
  * Register content embedding after successful minting
- * Moves embedding from pending to registered namespace in Pinecone
+ * Updates metadata in Pinecone with storyIpId (single namespace - no moving)
  */
 export async function registerContentEmbedding(
   contentHash: string,
@@ -278,7 +277,7 @@ export async function registerContentEmbedding(
 ): Promise<void> {
   try {
     logger.info('Attempting to register content embedding', { contentHash, storyIpId });
-    
+
     const embedding = await Embedding.findOne({ contentHash });
 
     if (!embedding) {
@@ -300,26 +299,12 @@ export async function registerContentEmbedding(
     await embedding.save();
     logger.info('Updated embedding in MongoDB', { contentHash, storyIpId });
 
-    // Delete from pending namespace first
-    try {
-      await deleteEmbedding(embedding.pineconeId, aiConfig.pinecone.namespace.pending);
-      logger.info('Deleted embedding from pending namespace', {
-        pineconeId: embedding.pineconeId,
-      });
-    } catch (deleteError: any) {
-      // Log but don't fail if deletion fails (embedding might not exist in pending)
-      logger.warn('Failed to delete from pending namespace (may not exist)', {
-        error: deleteError.message,
-        pineconeId: embedding.pineconeId,
-      });
-    }
-
-    // Add to registered namespace in Pinecone
-    logger.info('Upserting to registered namespace', {
+    // Update Pinecone metadata with storyIpId (upsert to same namespace)
+    logger.info('Updating Pinecone metadata with storyIpId', {
       pineconeId: embedding.pineconeId,
-      namespace: aiConfig.pinecone.namespace.registered,
+      namespace: aiConfig.pinecone.namespace,
     });
-    
+
     await upsertEmbeddings(
       [
         {
@@ -336,7 +321,7 @@ export async function registerContentEmbedding(
           },
         },
       ],
-      aiConfig.pinecone.namespace.registered
+      aiConfig.pinecone.namespace
     );
 
     logger.info('Successfully registered content embedding', {
@@ -345,11 +330,11 @@ export async function registerContentEmbedding(
       pineconeId: embedding.pineconeId,
     });
   } catch (error: any) {
-    logger.error('Failed to register content embedding', { 
+    logger.error('Failed to register content embedding', {
       error: error.message,
       stack: error.stack,
-      contentHash, 
-      storyIpId 
+      contentHash,
+      storyIpId
     });
     throw error;
   }

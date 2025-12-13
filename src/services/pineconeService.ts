@@ -85,7 +85,7 @@ export async function upsertEmbeddings(
       timestamp: number;
     };
   }>,
-  namespace: string = aiConfig.pinecone.namespace.registered
+  namespace: string = aiConfig.pinecone.namespace
 ): Promise<void> {
   try {
     const index = await getOrCreateIndex();
@@ -109,7 +109,7 @@ export async function upsertEmbeddings(
 export async function querySimilarEmbeddings(
   queryVector: number[],
   topK: number = aiConfig.similarity.topKMatches,
-  namespace: string = aiConfig.pinecone.namespace.registered,
+  namespace: string = aiConfig.pinecone.namespace,
   filter?: Record<string, any>
 ): Promise<
   Array<{
@@ -159,7 +159,7 @@ export async function querySimilarEmbeddings(
  */
 export async function deleteEmbedding(
   pineconeId: string,
-  namespace: string = aiConfig.pinecone.namespace.registered
+  namespace: string = aiConfig.pinecone.namespace
 ): Promise<void> {
   try {
     const index = await getOrCreateIndex();
