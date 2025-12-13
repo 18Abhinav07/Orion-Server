@@ -212,6 +212,7 @@ export async function generateContentEmbedding(
       const filePath = await downloadFromIPFS(contentURI, tempDir);
       const textContent = await fs.readFile(filePath, 'utf-8');
       logger.info(`Text content downloaded, length: ${textContent.length} characters`);
+      logger.info(`📝 EMBEDDING TEXT PREVIEW (first 200 chars): ${textContent.substring(0, 200)}`);
       const [embedding] = await generateEmbedding(textContent);
       return { embedding };
     }

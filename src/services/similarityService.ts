@@ -78,16 +78,24 @@ function getSimilarityMessage(
 
 /**
  * Check content similarity against existing registered IPs
+ * @param contentFileURI - IPFS URI of the actual content file (NOT metadata JSON)
+ * @param nftMetadataURI - IPFS URI of the NFT metadata
+ * @param assetType - Type of asset
+ * @param creatorAddress - Creator's wallet address
+ * @param contentHash - SHA256 hash of the content
+ * @param ipMetadataURI - IPFS URI of the IP metadata JSON (for storage/reference)
  */
 export async function checkContentSimilarity(
-  ipMetadataURI: string,
+  contentFileURI: string, // Actual content file for embedding
   nftMetadataURI: string,
   assetType: 'video' | 'image' | 'audio' | 'text',
   creatorAddress: string,
-  contentHash: string // Use file's SHA256 hash for consistency
+  contentHash: string,
+  ipMetadataURI?: string // Optional, for metadata storage
 ): Promise<SimilarityCheckResult> {
   try {
     logger.info('Starting content similarity check', {
+      contentFileURI,
       ipMetadataURI,
       nftMetadataURI,
       assetType,
@@ -122,7 +130,7 @@ export async function checkContentSimilarity(
 
     // Generate embedding for the new content
     const { embedding, framesExtracted } = await generateContentEmbedding(
-      ipMetadataURI,
+      contentFileURI, // Use actual content file URI
       assetType
     );
 
@@ -163,7 +171,7 @@ export async function checkContentSimilarity(
         llmAnalysis = await analyzeSimilarityWithLLM(
           {
             assetType,
-            ipMetadataURI,
+            ipMetadataURI: ipMetadataURI || contentFileURI,
             nftMetadataURI,
             creatorAddress,
           },
@@ -177,11 +185,11 @@ export async function checkContentSimilarity(
           topScore
         );
 
-        logger.info('LLM analysis completed', {
+        logger.info(`LLM analysis completed ${JSON.stringify({
           recommendation: llmAnalysis.recommendation,
           confidenceScore: llmAnalysis.confidence_score,
           isDerivative: llmAnalysis.is_derivative,
-        });
+        })}`);
       } catch (error: any) {
         logger.warn('LLM analysis failed, falling back to threshold-based decision', {
           error: error.message,
@@ -217,7 +225,7 @@ export async function checkContentSimilarity(
       pineconeId: generatePineconeId(contentHash),
       assetType,
       creatorAddress,
-      ipMetadataURI,
+      ipMetadataURI: ipMetadataURI || contentFileURI,
       nftMetadataURI,
       extractedFrames: framesExtracted,
       embeddingModel: aiConfig.voyageAI.multimodalModel,
@@ -239,7 +247,7 @@ export async function checkContentSimilarity(
               contentHash,
               assetType,
               creatorAddress,
-              ipMetadataURI,
+              ipMetadataURI: ipMetadataURI || contentFileURI,
               nftMetadataURI,
               timestamp: Date.now(),
             },
@@ -249,12 +257,12 @@ export async function checkContentSimilarity(
       );
     }
 
-    logger.info('Similarity check completed', {
+    logger.info(`Similarity check completed  ${JSON.stringify( {
       contentHash,
       status,
       similarityScore: topScore,
       matchesFound: formattedMatches.length,
-    });
+    })})`);
 
     return result;
   } catch (error: any) {

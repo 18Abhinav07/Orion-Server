@@ -98,14 +98,20 @@ export const generateMintToken = async (req: Request, res: Response) => {
         creatorAddress,
         contentHash,
         assetType,
+        contentFileURI: image,
+        ipMetadataURI,
       })}`);
 
+      // Use the actual content file URI (from 'image' field) instead of metadata URI
+      const contentFileURI = image || ipMetadataURI;
+      
       similarityResult = await checkContentSimilarity(
-        ipMetadataURI,
+        contentFileURI, // Actual content file (not metadata JSON)
         nftMetadataURI,
         assetType,
         creatorAddress,
-        contentHash
+        contentHash,
+        ipMetadataURI // Keep metadata URI for reference
       );
 
       logger.info(`Similarity check completed: ${JSON.stringify({
